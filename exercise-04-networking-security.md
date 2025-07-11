@@ -13,7 +13,7 @@ By the end of this exercise, you will be able to:
 - Implement security best practices
 - Configure network security groups
 - Use Azure Key Vault integration
-- Implement pod security policies
+- Implement Pod Security Standards
 
 ## Prerequisites
 
@@ -621,63 +621,85 @@ az network vnet subnet update \
   --network-security-group "nsg-aks-workshop"
 ```
 
-### Step 11: Implement Pod Security Policies
+### Step 11: Implement Pod Security Standards
 
-Create pod security policies to enforce security standards:
+Create namespace with Pod Security Standards to enforce security policies:
 
 ```yaml
-# Create pod-security-policy.yaml
-apiVersion: policy/v1beta1
-kind: PodSecurityPolicy
+# Create namespace with Pod Security Standards
+apiVersion: v1
+kind: Namespace
 metadata:
-  name: restricted-psp
-  annotations:
-    seccomp.security.alpha.kubernetes.io/allowedProfileNames: 'runtime/default'
-    apparmor.security.beta.kubernetes.io/allowedProfileNames: 'runtime/default'
+  name: restricted-workload
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+---
+# Example deployment that complies with restricted security standards
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: secure-app
+  namespace: restricted-workload
 spec:
-  privileged: false
-  allowPrivilegeEscalation: false
-  requiredDropCapabilities:
-    - ALL
-  volumes:
-    - 'configMap'
-    - 'emptyDir'
-    - 'projected'
-    - 'secret'
-    - 'downwardAPI'
-    - 'persistentVolumeClaim'
-  hostNetwork: false
-  hostIPC: false
-  hostPID: false
-  runAsUser:
-    rule: 'MustRunAsNonRoot'
-  seLinux:
-    rule: 'RunAsAny'
-  supplementalGroups:
-    rule: 'MustRunAs'
-    ranges:
-      - min: 1
-        max: 65535
-  fsGroup:
-    rule: 'MustRunAs'
-    ranges:
-      - min: 1
-        max: 65535
-  readOnlyRootFilesystem: true
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: psp-restricted
-rules:
-- apiGroups: ['policy']
-  resources: ['podsecuritypolicies']
-  verbs: ['use']
-  resourceNames:
-  - restricted-psp
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+  replicas: 2
+  selector:
+    matchLabels:
+      app: secure-app
+  template:
+    metadata:
+      labels:
+        app: secure-app
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 2000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: app
+        image: nginx:latest
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: var-cache-nginx
+          mountPath: /var/cache/nginx
+        - name: var-run
+          mountPath: /var/run
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: var-cache-nginx
+        emptyDir: {}
+      - name: var-run
+        emptyDir: {}
+```
+
+Apply the Pod Security Standards configuration:
+
+```bash
+# Apply the configuration
+kubectl apply -f pod-security-standards.yaml
+
+# Test the security enforcement
+kubectl get namespace restricted-workload -o yaml
+
+# Try to create a non-compliant pod (this should fail)
+kubectl run test-privileged \
+  --image=nginx \
+  --namespace=restricted-workload \
+  --privileged \
+  --dry-run=client -o yaml
 metadata:
   name: psp-restricted-binding
 roleRef:
@@ -707,9 +729,9 @@ kubectl auth can-i delete deployments --namespace=networking-workshop
 # Check Key Vault integration
 kubectl get secret database-secret --namespace=networking-workshop
 
-# Test pod security policies
-kubectl run test-pod --image=nginx:latest --namespace=networking-workshop
-kubectl describe pod test-pod --namespace=networking-workshop
+# Test Pod Security Standards
+kubectl run test-pod --image=nginx:latest --namespace=restricted-workload
+kubectl describe pod test-pod --namespace=restricted-workload
 ```
 
 ## Understanding Networking and Security Concepts
@@ -888,7 +910,7 @@ In this exercise, you have:
 - ✅ Implemented security best practices
 - ✅ Configured network security groups
 - ✅ Used Azure Key Vault integration
-- ✅ Implemented pod security policies
+- ✅ Implemented Pod Security Standards
 
 ## Next Steps
 
@@ -900,4 +922,4 @@ You're now ready to move to **Exercise 5: Monitoring and Logging** where you'll 
 - [Network Policies](https://kubernetes.io/docs/concepts/services-networking/network-policies/)
 - [RBAC](https://kubernetes.io/docs/reference/access-authn-authz/rbac/)
 - [Azure Key Vault](https://docs.microsoft.com/en-us/azure/key-vault/)
-- [Pod Security Policies](https://kubernetes.io/docs/concepts/policy/pod-security-policy/) 
+- [Pod Security Standards](https://kubernetes.io/docs/concepts/security/pod-security-standards/) 
