@@ -200,7 +200,7 @@ kubectl get nodes
 kubectl get pods --all-namespaces
 
 # Check cluster version
-kubectl version --short
+kubectl version
 ```
 
 ### Step 7: Explore AKS Architecture
