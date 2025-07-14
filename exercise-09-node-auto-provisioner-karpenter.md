@@ -1080,7 +1080,7 @@ kubectl describe node <node-name>
    - Monitor and optimize resource utilization
 
 3. **Security:**
-   - Use pod security policies
+   - Use Pod Security Standards
    - Implement network policies
    - Regular security updates
 

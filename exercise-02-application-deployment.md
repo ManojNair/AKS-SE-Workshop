@@ -57,10 +57,9 @@ kubectl config set-context --current --namespace=app-workshop
 Start with a simple nginx deployment:
 
 ```bash
-# Deploy nginx using kubectl run
-kubectl run nginx-app \
+# Deploy nginx using kubectl create deployment
+kubectl create deployment nginx-app \
   --image=nginx:latest \
-  --port=80 \
   --replicas=2 \
   --namespace=app-workshop
 
